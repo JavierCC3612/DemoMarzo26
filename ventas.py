@@ -8,6 +8,23 @@ st.set_page_config(page_title="Dashboard de Ventas", layout="wide", page_icon="�
 st.title("📊 Dashboard de Ventas — Sucursales USA")
 st.markdown("---")
 
+# Diccionario: nombre completo del estado → abreviatura de 2 letras (requerido por Plotly para el mapa)
+ESTADO_A_CODIGO = {
+    "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR",
+    "California": "CA", "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE",
+    "District of Columbia": "DC", "Florida": "FL", "Georgia": "GA", "Hawaii": "HI",
+    "Idaho": "ID", "Illinois": "IL", "Indiana": "IN", "Iowa": "IA",
+    "Kansas": "KS", "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME",
+    "Maryland": "MD", "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN",
+    "Mississippi": "MS", "Missouri": "MO", "Montana": "MT", "Nebraska": "NE",
+    "Nevada": "NV", "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM",
+    "New York": "NY", "North Carolina": "NC", "North Dakota": "ND", "Ohio": "OH",
+    "Oklahoma": "OK", "Oregon": "OR", "Pennsylvania": "PA", "Rhode Island": "RI",
+    "South Carolina": "SC", "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX",
+    "Utah": "UT", "Vermont": "VT", "Virginia": "VA", "Washington": "WA",
+    "West Virginia": "WV", "Wisconsin": "WI", "Wyoming": "WY"
+}
+
 @st.cache_data
 def load_data():
     df = pd.read_excel("datos/SalidaVentas.xlsx")
@@ -48,6 +65,49 @@ k1.metric("💰 Ventas Totales", f"${total_ventas:,.0f}")
 k2.metric("📈 Ganancia Total", f"${total_profit:,.0f}")
 k3.metric("🛒 Órdenes Únicas", f"{total_ordenes:,}")
 k4.metric("🎯 Margen Neto", f"{margen:.1f}%")
+
+st.markdown("---")
+
+# ══════════════════════════════════════════════════════════════════
+# MAPA — Ventas por estado
+# ══════════════════════════════════════════════════════════════════
+st.subheader("🗺️ ¿En qué estados se vende más?")
+st.caption("Más oscuro el color = más ventas tuvo ese estado. Pasa el cursor sobre un estado para ver el detalle.")
+
+ventas_estado = (
+    dff.groupby("State")["Sales"]
+    .sum()
+    .reset_index()
+)
+# Convertir nombre completo a código de 2 letras para que Plotly dibuje el mapa correctamente
+ventas_estado["Codigo"] = ventas_estado["State"].map(ESTADO_A_CODIGO)
+ventas_estado["Ventas (miles $)"] = (ventas_estado["Sales"] / 1000).round(1)
+ventas_estado["Texto hover"] = ventas_estado.apply(
+    lambda r: f"{r['State']}<br>${r['Ventas (miles $)']:.0f}k en ventas", axis=1
+)
+
+fig_mapa = px.choropleth(
+    ventas_estado,
+    locations="Codigo",
+    locationmode="USA-states",       # ← Plotly usa códigos de 2 letras internamente
+    color="Ventas (miles $)",
+    scope="usa",
+    color_continuous_scale="Blues",  # Más oscuro = más ventas
+    hover_name="State",
+    hover_data={"Ventas (miles $)": True, "Codigo": False},
+    labels={"Ventas (miles $)": "Ventas (miles $)"},
+)
+fig_mapa.update_layout(
+    geo=dict(bgcolor="rgba(0,0,0,0)"),
+    coloraxis_colorbar=dict(
+        title="Ventas<br>(miles $)",
+        tickprefix="$",
+        ticksuffix="k",
+    ),
+    height=500,
+    margin=dict(l=0, r=0, t=0, b=0),
+)
+st.plotly_chart(fig_mapa, use_container_width=True)
 
 st.markdown("---")
 
@@ -130,7 +190,7 @@ st.markdown("---")
 # ══════════════════════════════════════════════════════════════════
 # GRÁFICA 3 — ¿Cuáles son los 10 estados que más venden?
 # ══════════════════════════════════════════════════════════════════
-st.subheader("🗺️ ¿Cuáles son los 10 estados que más venden?")
+st.subheader("📊 ¿Cuáles son los 10 estados que más venden?")
 st.caption("Ranking horizontal — el estado más largo es el que más vendió.")
 
 top_estados = (
