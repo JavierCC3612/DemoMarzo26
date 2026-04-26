@@ -79,31 +79,23 @@ ventas_estado = (
     .sum()
     .reset_index()
 )
-# Convertir nombre completo a código de 2 letras para que Plotly dibuje el mapa correctamente
 ventas_estado["Codigo"] = ventas_estado["State"].map(ESTADO_A_CODIGO)
 ventas_estado["Ventas (miles $)"] = (ventas_estado["Sales"] / 1000).round(1)
-ventas_estado["Texto hover"] = ventas_estado.apply(
-    lambda r: f"{r['State']}<br>${r['Ventas (miles $)']:.0f}k en ventas", axis=1
-)
 
 fig_mapa = px.choropleth(
     ventas_estado,
     locations="Codigo",
-    locationmode="USA-states",       # ← Plotly usa códigos de 2 letras internamente
+    locationmode="USA-states",
     color="Ventas (miles $)",
     scope="usa",
-    color_continuous_scale="Blues",  # Más oscuro = más ventas
+    color_continuous_scale="Blues",
     hover_name="State",
     hover_data={"Ventas (miles $)": True, "Codigo": False},
     labels={"Ventas (miles $)": "Ventas (miles $)"},
 )
 fig_mapa.update_layout(
     geo=dict(bgcolor="rgba(0,0,0,0)"),
-    coloraxis_colorbar=dict(
-        title="Ventas<br>(miles $)",
-        tickprefix="$",
-        ticksuffix="k",
-    ),
+    coloraxis_colorbar=dict(title="Ventas<br>(miles $)", tickprefix="$", ticksuffix="k"),
     height=500,
     margin=dict(l=0, r=0, t=0, b=0),
 )
@@ -223,6 +215,68 @@ fig3.update_layout(
     xaxis=dict(showgrid=True, gridcolor="#eeeeee"),
 )
 st.plotly_chart(fig3, use_container_width=True)
+
+st.markdown("---")
+
+# ══════════════════════════════════════════════════════════════════
+# DATAFRAME INTERACTIVO
+# ══════════════════════════════════════════════════════════════════
+st.subheader("🔍 Explorar datos en detalle")
+st.caption("Usa los filtros de abajo para buscar registros específicos. Los filtros del panel lateral también aplican aquí.")
+
+# Filtros extra solo para la tabla
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    estados_tabla = st.multiselect(
+        "Filtrar por Estado",
+        options=sorted(dff["State"].unique()),
+        default=[],
+        placeholder="Todos los estados..."
+    )
+with col2:
+    segmentos_tabla = st.multiselect(
+        "Filtrar por Segmento",
+        options=sorted(dff["Segment"].unique()),
+        default=[],
+        placeholder="Todos los segmentos..."
+    )
+with col3:
+    busqueda = st.text_input("🔎 Buscar por nombre de cliente o producto", placeholder="Escribe aquí...")
+
+# Aplicar filtros de la tabla
+df_tabla = dff.copy()
+
+if estados_tabla:
+    df_tabla = df_tabla[df_tabla["State"].isin(estados_tabla)]
+if segmentos_tabla:
+    df_tabla = df_tabla[df_tabla["Segment"].isin(segmentos_tabla)]
+if busqueda:
+    df_tabla = df_tabla[
+        df_tabla["Customer Name"].str.contains(busqueda, case=False, na=False) |
+        df_tabla["Product Name"].str.contains(busqueda, case=False, na=False)
+    ]
+
+# Columnas relevantes para mostrar
+columnas_mostrar = ["Order Date", "Customer Name", "State", "Region", "Segment",
+                    "Category", "Sub-Category", "Product Name", "Sales", "Quantity", "Profit", "Ship Mode"]
+
+st.markdown(f"**{len(df_tabla):,} registros encontrados**")
+st.dataframe(
+    df_tabla[columnas_mostrar].reset_index(drop=True),
+    use_container_width=True,
+    height=400,
+    column_config={
+        "Order Date": st.column_config.DateColumn("Fecha de Orden", format="DD/MM/YYYY"),
+        "Sales": st.column_config.NumberColumn("Ventas ($)", format="$%.2f"),
+        "Profit": st.column_config.NumberColumn("Ganancia ($)", format="$%.2f"),
+        "Quantity": st.column_config.NumberColumn("Cantidad"),
+        "Customer Name": "Cliente",
+        "Product Name": "Producto",
+        "Ship Mode": "Envío",
+        "Sub-Category": "Sub-Categoría",
+    }
+)
 
 st.markdown("---")
 st.caption("📁 Fuente: SalidaVentas.xlsx · Datos 2015–2018 · Usa los filtros del panel izquierdo para explorar")
