@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 
-EXCEL_FILE_PATH = 'SalidaVentas.xlsx' # User can modify this path, e.g., 'datos/SalidaVentas.xlsx'
+EXCEL_FILE_PATH = 'datos/SalidaVentas.xlsx' # User can modify this path, e.g., 'datos/SalidaVentas.xlsx'
 
 # Load the dataset
 @st.cache_data # Cache data to avoid reloading on every rerun
