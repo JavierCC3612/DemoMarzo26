@@ -52,116 +52,117 @@ k4.metric("🎯 Margen Neto", f"{margen:.1f}%")
 st.markdown("---")
 
 # ══════════════════════════════════════════════════════════════════
-# GRÁFICA 1 — Ventas mensuales por Región (línea de tiempo)
+# GRÁFICA 1 — ¿Cuánto vendió cada región por año?
 # ══════════════════════════════════════════════════════════════════
-st.subheader("📅 Gráfica 1 — Tendencia de Ventas Mensuales por Región")
-st.caption("Muestra cómo evoluciona el ingreso en el tiempo para cada región, permitiendo detectar estacionalidad y crecimiento.")
+st.subheader("🌎 ¿Cuánto vendió cada región cada año?")
+st.caption("Barras agrupadas por año — más alta la barra, más ventas tuvo esa región ese año.")
 
-monthly = (
-    dff.groupby(["Mes", "Region"])["Sales"]
+ventas_region_año = (
+    dff.groupby(["Año", "Region"])["Sales"]
     .sum()
     .reset_index()
-    .sort_values("Mes")
 )
+ventas_region_año["Ventas (miles $)"] = (ventas_region_año["Sales"] / 1000).round(1)
+ventas_region_año["Etiqueta"] = ventas_region_año["Ventas (miles $)"].apply(lambda v: f"${v:.0f}k")
 
-fig1 = px.line(
-    monthly,
-    x="Mes",
-    y="Sales",
+fig1 = px.bar(
+    ventas_region_año,
+    x="Año",
+    y="Ventas (miles $)",
     color="Region",
-    markers=True,
+    barmode="group",
+    text="Etiqueta",
     color_discrete_sequence=px.colors.qualitative.Bold,
-    labels={"Sales": "Ventas ($)", "Mes": "Mes", "Region": "Región"},
+    labels={"Region": "Región", "Año": "Año"},
 )
+fig1.update_traces(textposition="outside")
 fig1.update_layout(
-    xaxis_tickangle=-45,
-    hovermode="x unified",
+    yaxis_title="Ventas (miles de dólares)",
+    xaxis_title="",
+    xaxis=dict(tickmode="array", tickvals=ventas_region_año["Año"].unique()),
     legend_title="Región",
-    yaxis_tickformat="$,.0f",
     height=420,
+    yaxis=dict(showgrid=True, gridcolor="#eeeeee"),
+    plot_bgcolor="white",
 )
 st.plotly_chart(fig1, use_container_width=True)
 
 st.markdown("---")
 
 # ══════════════════════════════════════════════════════════════════
-# GRÁFICA 2 — Ventas vs Ganancia por Categoría y Segmento
+# GRÁFICA 2 — ¿Qué categoría deja más ganancia?
 # ══════════════════════════════════════════════════════════════════
-st.subheader("🏷️ Gráfica 2 — Ventas vs. Ganancia por Categoría y Segmento")
-st.caption("Compara cuánto se vende con cuánto se gana realmente: identifica qué categorías son rentables y cuáles no.")
+st.subheader("🏷️ ¿Qué categoría de producto deja más ganancia?")
+st.caption("Cada barra muestra la ganancia total. En verde = ganancia positiva.")
 
-cat_seg = (
-    dff.groupby(["Category", "Segment"])[["Sales", "Profit"]]
+ganancia_cat = (
+    dff.groupby("Category")["Profit"]
     .sum()
     .reset_index()
+    .sort_values("Profit", ascending=False)
 )
+ganancia_cat["Ganancia (miles $)"] = (ganancia_cat["Profit"] / 1000).round(1)
+ganancia_cat["Etiqueta"] = ganancia_cat["Ganancia (miles $)"].apply(lambda v: f"${v:.1f}k")
+ganancia_cat["Color"] = ganancia_cat["Profit"].apply(lambda v: "Ganancia" if v >= 0 else "Pérdida")
 
-fig2 = px.scatter(
-    cat_seg,
-    x="Sales",
-    y="Profit",
-    color="Category",
-    symbol="Segment",
-    size="Sales",
-    text="Segment",
-    color_discrete_sequence=px.colors.qualitative.Set2,
-    labels={"Sales": "Ventas ($)", "Profit": "Ganancia ($)", "Category": "Categoría", "Segment": "Segmento"},
+fig2 = px.bar(
+    ganancia_cat,
+    x="Category",
+    y="Ganancia (miles $)",
+    text="Etiqueta",
+    color="Color",
+    color_discrete_map={"Ganancia": "#2ecc71", "Pérdida": "#e74c3c"},
+    labels={"Category": "Categoría", "Ganancia (miles $)": "Ganancia (miles $)"},
 )
-fig2.update_traces(textposition="top center", marker=dict(sizemode="area", sizeref=2.*cat_seg["Sales"].max()/(40.**2)))
-fig2.add_hline(y=0, line_dash="dash", line_color="red", annotation_text="Punto de equilibrio", annotation_position="bottom right")
+fig2.update_traces(textposition="outside", width=0.4)
 fig2.update_layout(
-    xaxis_tickformat="$,.0f",
-    yaxis_tickformat="$,.0f",
-    height=440,
+    xaxis_title="",
+    yaxis_title="Ganancia (miles de dólares)",
+    showlegend=False,
+    height=400,
+    plot_bgcolor="white",
+    yaxis=dict(showgrid=True, gridcolor="#eeeeee"),
 )
 st.plotly_chart(fig2, use_container_width=True)
 
 st.markdown("---")
 
 # ══════════════════════════════════════════════════════════════════
-# GRÁFICA 3 — Top 15 Estados por Ventas (barras horizontales + margen)
+# GRÁFICA 3 — ¿Cuáles son los 10 estados que más venden?
 # ══════════════════════════════════════════════════════════════════
-st.subheader("🗺️ Gráfica 3 — Top 15 Estados por Ventas y Rentabilidad")
-st.caption("Rankea las sucursales/estados por volumen de ventas y superpone el margen de ganancia para ver cuáles son estratégicamente más valiosos.")
+st.subheader("🗺️ ¿Cuáles son los 10 estados que más venden?")
+st.caption("Ranking horizontal — el estado más largo es el que más vendió.")
 
-state_data = (
-    dff.groupby("State")[["Sales", "Profit"]]
+top_estados = (
+    dff.groupby("State")["Sales"]
     .sum()
     .reset_index()
+    .nlargest(10, "Sales")
+    .sort_values("Sales")
 )
-state_data["Margen %"] = (state_data["Profit"] / state_data["Sales"] * 100).round(1)
-state_data = state_data.nlargest(15, "Sales").sort_values("Sales")
+top_estados["Ventas (miles $)"] = (top_estados["Sales"] / 1000).round(1)
+top_estados["Etiqueta"] = top_estados["Ventas (miles $)"].apply(lambda v: f"${v:.0f}k")
 
-fig3 = go.Figure()
-fig3.add_trace(go.Bar(
-    y=state_data["State"],
-    x=state_data["Sales"],
+fig3 = px.bar(
+    top_estados,
+    x="Ventas (miles $)",
+    y="State",
     orientation="h",
-    name="Ventas",
-    marker_color="#4C72B0",
-    text=state_data["Sales"].apply(lambda v: f"${v:,.0f}"),
-    textposition="outside",
-))
-fig3.add_trace(go.Scatter(
-    y=state_data["State"],
-    x=state_data["Margen %"],
-    mode="markers+text",
-    name="Margen %",
-    marker=dict(color="orange", size=10, symbol="diamond"),
-    text=state_data["Margen %"].apply(lambda v: f"{v:.1f}%"),
-    textposition="middle right",
-    xaxis="x2",
-))
+    text="Etiqueta",
+    color="Ventas (miles $)",
+    color_continuous_scale="Blues",
+    labels={"State": "Estado", "Ventas (miles $)": "Ventas (miles $)"},
+)
+fig3.update_traces(textposition="outside")
 fig3.update_layout(
-    xaxis=dict(title="Ventas ($)", tickformat="$,.0f"),
-    xaxis2=dict(title="Margen de Ganancia (%)", overlaying="x", side="top", ticksuffix="%"),
-    yaxis=dict(title=""),
-    legend=dict(x=0.75, y=0.05),
-    height=520,
-    hovermode="y unified",
-    margin=dict(r=120),
+    xaxis_title="Ventas (miles de dólares)",
+    yaxis_title="",
+    coloraxis_showscale=False,
+    height=430,
+    plot_bgcolor="white",
+    xaxis=dict(showgrid=True, gridcolor="#eeeeee"),
 )
 st.plotly_chart(fig3, use_container_width=True)
 
 st.markdown("---")
-st.caption("📁 Fuente: SalidaVentas.xlsx · Datos 2015–2018 · Filtros aplicables desde el panel lateral")
+st.caption("📁 Fuente: SalidaVentas.xlsx · Datos 2015–2018 · Usa los filtros del panel izquierdo para explorar")
